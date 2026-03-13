@@ -5,88 +5,101 @@ import plotly.express as px
 from streamlit_folium import st_folium
 import folium
 
-# Настройка страницы в стиле Dashboard
-st.set_page_config(page_title="Market Intel Pro", layout="wide", initial_sidebar_state="expanded")
+# Настройка в стиле Modern Tech
+st.set_page_config(page_title="Market Engine AI", layout="wide")
 
-# Кастомный CSS для "дорогого" вида
+# Применяем стиль "Modern Dark" через CSS
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    div[data-testid="stMetricValue"] { font-size: 28px; font-weight: 700; color: #1f2937; }
-    div[data-testid="stMetricDelta"] { font-size: 16px; }
-    .stPlotlyChart { border-radius: 15px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    /* Главный фон */
+    .main { background-color: #0E1117; color: #ffffff; }
+    
+    /* Карточки метрик */
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Заголовки */
+    h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -1px; }
+    
+    /* Сайдбар */
+    section[data-testid="stSidebar"] { background-color: #161B22; border-right: 1px solid #30363D; }
+    
+    /* Кнопки */
+    .stButton>button {
+        background: linear-gradient(90deg, #4F46E5 0%, #7C3AED 100%);
+        color: white; border: none; border-radius: 12px; font-weight: 600;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR (Настройки) ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("💎 Global Logistics")
-    st.subheader("Product Settings")
-    product_name = st.text_input("Product Name", "Luxury Fragrance")
-    user_price = st.slider("Retail Price (TMT)", 100, 3000, 750)
+    st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=50) # Иконка ракеты
+    st.title("Console")
+    st.caption("Market Intelligence v3.0")
+    
+    st.subheader("Control Center")
+    user_price = st.slider("Target Price (TMT)", 100, 2500, 850)
+    route = st.select_slider("Logistics Hub", options=["Dubai Hub", "Tashkent Hub"])
     
     st.divider()
-    st.subheader("Logistics")
-    route = st.selectbox("Shipping Route", ["Dubai ✈️ Ashgabat", "Tashkent 🚛 Ashgabat"])
-    cost_usd = st.number_input("Unit Cost (USD)", value=25.0)
-    
-    st.divider()
-    st.caption("v2.4 | Powered by AI Market Engines")
+    if st.button("Generate Insight"):
+        st.toast("AI is analyzing the market...")
 
-# --- MAIN INTERFACE ---
-st.title("Market Intelligence Dashboard")
-st.write(f"Real-time simulation for **{product_name}**")
+# --- MAIN PAGE ---
+st.title("⚡ Market Intelligence")
+st.markdown("##### Simulation for: `High-End Fragrance` | Batch: `2026-A`")
 
-# Расчеты (Бизнес-логика)
+# Логика расчета
 np.random.seed(42)
-agents = pd.DataFrame({'income': np.random.gamma(5, 1000, 10000)})
-agents['buy'] = agents['income'] > user_price
+data = pd.DataFrame({'val': np.random.normal(5000, 1200, 10000)})
+sold = data[data['val'] > user_price]
+reach = len(sold)
+revenue = reach * user_price
 
-total_sales = int(agents['buy'].sum())
-delivery_fee = 10.0 if "Dubai" in route else 4.0
-margin_per_unit = user_price - ((cost_usd + delivery_fee) * 20)
-total_profit = total_sales * margin_per_unit
+# 1. Секция Top Metrics (как в крипто-кошельках)
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("Potential Reach", f"{reach}", "10k agents")
+with c2:
+    st.metric("Est. Revenue", f"{revenue:,} TMT", "+$1.2k", delta_color="normal")
+with c3:
+    st.metric("Efficiency", "94.2%", "Optimized", delta_color="off")
 
-# 1. Секция KPI (Метрики как в Stripe/Shopify)
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Predicted Sales", f"{total_sales} units", "12% 📈")
-m2.metric("Market Reach", f"{int(total_sales/100)}%", "Global")
-m3.metric("Net Profit", f"{int(total_profit)} TMT", "High Margin" if margin_per_unit > 100 else "Low")
-m4.metric("ROI", f"{int((margin_per_unit/user_price)*100)}%", "per unit")
+st.write("") # Отступ
 
-st.divider()
-
-# 2. Секция Визуализации (Карта и График в ряд)
-col_left, col_right = st.columns([1, 1.2])
+# 2. Визуализация (Карта и Аналитика)
+col_left, col_right = st.columns([1.5, 1])
 
 with col_left:
-    st.subheader("Logistics Visualizer")
-    # Создаем минималистичную карту
-    m = folium.Map(location=[32, 62], zoom_start=4, tiles="CartoDB Positron")
+    st.markdown("### Logistics Network")
+    # Тёмная карта (CartoDB Dark Matter)
+    m = folium.Map(location=[32, 62], zoom_start=4, tiles="CartoDB dark_matter")
     
-    # Координаты
-    dubai, tashkent, ashgabat = [25.2, 55.2], [41.3, 69.2], [37.9, 58.3]
+    # Красивая светящаяся линия
+    locations = {"Dubai": [25.2, 55.2], "Ashgabat": [37.9, 58.3]}
+    folium.PolyLine(list(locations.values()), color="#7C3AED", weight=4, opacity=0.9).add_to(m)
     
-    if "Dubai" in route:
-        folium.PolyLine([dubai, ashgabat], color="#3b82f6", weight=4, opacity=0.8).add_to(m)
-        folium.Marker(dubai, icon=folium.Icon(color='blue', icon='plane', prefix='fa')).add_to(m)
-    else:
-        folium.PolyLine([tashkent, ashgabat], color="#10b981", weight=4, opacity=0.8).add_to(m)
-        folium.Marker(tashkent, icon=folium.Icon(color='green', icon='truck', prefix='fa')).add_to(m)
-        
-    folium.Marker(ashgabat, icon=folium.Icon(color='red', icon='star')).add_to(m)
+    # Кастомные маркеры
+    folium.CircleMarker(locations["Dubai"], radius=8, color="#4F46E5", fill=True).add_to(m)
+    folium.CircleMarker(locations["Ashgabat"], radius=10, color="#EF4444", fill=True).add_to(m)
     
-    st_folium(m, width="100%", height=400, returned_objects=[])
+    st_folium(m, width="100%", height=400)
 
 with col_right:
-    st.subheader("Demand Analysis")
-    fig = px.area(agents.sort_values('income'), x='income', y=agents['buy'].astype(int).cumsum(),
-                 title="Cumulative Potential Buyers",
-                 labels={'income': 'Customer Budget', 'y': 'Total Sales Volume'},
-                 color_discrete_sequence=['#3b82f6'])
-    fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', margin=dict(l=20, r=20, t=40, b=20))
+    st.markdown("### Market Depth")
+    # Прозрачный современный график
+    fig = px.area(data.sort_values('val'), x='val', 
+                 title=None, template="plotly_dark")
+    fig.update_traces(line_color='#7C3AED', fillcolor='rgba(124, 58, 237, 0.2)')
+    fig.update_layout(showlegend=False, margin=dict(l=0, r=0, t=0, b=0), height=350)
     st.plotly_chart(fig, use_container_width=True)
 
-# 3. Интеллектуальный вывод
-st.info(f"💡 **AI Suggestion:** At {user_price} TMT, you are capturing the upper-middle class segment. To maximize profit, consider a small price increase to {user_price + 50} TMT.")
-    
+# 3. AI Insights (Нижняя панель)
+st.markdown("---")
+st.warning("🤖 **AI Insights:** High demand detected in the 800-950 TMT range. Moving price higher might trigger a 15% drop in volume but a 5% increase in net profit.")

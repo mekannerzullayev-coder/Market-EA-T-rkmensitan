@@ -8,7 +8,7 @@ import google.generativeai as genai
 
 # --- ИНТЕГРАЦИЯ GEMINI ---
 # Твой новый ключ
-genai.configure(api_key="AIzaSyAjDrEkJdmMANfoCpJPd3AhahMBzELPWEA")
+genai.configure(api_key="AIzaSyCTUbi4vk6BITruPLlE5bpE_U2FMnpUNuE")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def get_gemini_analysis(product, origin, cost, price, sales, margin, roi):

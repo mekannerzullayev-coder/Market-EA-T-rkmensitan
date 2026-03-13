@@ -5,99 +5,89 @@ import plotly.express as px
 from streamlit_folium import st_folium
 import folium
 
-# Настройка страницы
+# Конфигурация страницы
 st.set_page_config(page_title="Market Engine AI", layout="wide")
 
-# Темная тема и стилистика
+# Кастомный CSS для стиля "High-Tech Dark"
 st.markdown("""
     <style>
-    .main { background-color: #0E1117; color: #ffffff; }
-    div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 15px;
-        border-radius: 15px;
+    .main { background-color: #0E1117; color: white; }
+    div[data-testid="stMetric"] { 
+        background: rgba(255, 255, 255, 0.05); 
+        border: 1px solid #30363D; 
+        border-radius: 15px; 
     }
-    section[data-testid="stSidebar"] { background-color: #161B22; }
+    .stTextInput>div>div>input, .stNumberInput>div>div>input {
+        background-color: #161B22; color: white; border-radius: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
+st.title("⚡ Market Intelligence Dashboard")
 
-# --- SIDEBAR (Все твои настройки здесь) ---
-with st.sidebar:
-    st.title("🕹️ Control Center")
+# Блок основных параметров продукта
+with st.container():
+    st.subheader("📦 Параметры бизнеса")
+    col1, col2, col3 = st.columns(3)
     
-    st.subheader("📦 Product Info")
-    product_name = st.text_input("Название товара", "Luxury Fragrance")
+    with col1:
+        product_name = st.text_input("Название продукта", "Perfume Elite")
+        origin_city = st.selectbox("Откуда доставка", ["Dubai (UAE)", "Tashkent (UZB)", "Istanbul (TUR)"])
     
-    st.subheader("💰 Economics")
-    buy_price_usd = st.number_input("Цена закупки ($)", value=25.0)
-    target_price_tmt = st.slider("Цена продажи (TMT)", 100, 3000, 850)
-    
-    st.subheader("🚛 Logistics")
-    origin = st.selectbox("Откуда везем?", ["Dubai (UAE)", "Tashkent (UZB)"])
-    shipping_speed = st.select_slider("Скорость доставки", options=["Economy", "Standard", "Express"])
-    
-    st.divider()
-    generate = st.button("Generate Insight", use_container_width=True)
+    with col2:
+        cost_usd = st.number_input("Закупка за ед. ($)", value=20.0)
+        shipping_usd = st.number_input("Доставка за ед. ($)", value=5.0)
+        
+    with col3:
+        target_price_tmt = st.number_input("Цена продажи (TMT)", value=800)
+        exchange_rate = st.number_input("Курс (1$ в TMT)", value=20.0)
 
-# --- МАТЕМАТИКА БИЗНЕСА ---
-# Курс доллара возьмем условно 20
-exchange_rate = 20
-shipping_cost = 8.0 if origin == "Dubai (UAE)" else 4.0
-if shipping_speed == "Express": shipping_cost *= 1.5
-
-total_cost_tmt = (buy_price_usd + shipping_cost) * exchange_rate
-
-# Симуляция 10,000 агентов
+# Математические расчеты
+total_cost_tmt = (cost_usd + shipping_usd) * exchange_rate
+margin_tmt = target_price_tmt - total_cost_tmt
+roi = (margin_tmt / total_cost_tmt) * 100 if total_cost_tmt > 0 else 0
+# Симуляция рынка (10,000 виртуальных покупателей)
 np.random.seed(42)
-data = pd.DataFrame({'val': np.random.normal(5000, 1500, 10000)})
-sold_count = len(data[data['val'] > target_price_tmt])
-net_profit = sold_count * (target_price_tmt - total_cost_tmt)
+market_data = pd.DataFrame({'budget': np.random.normal(4500, 1500, 10000)})
+buyers = market_data[market_data['budget'] > target_price_tmt]
+sales_count = len(buyers)
+total_profit = sales_count * margin_tmt
 
-# --- ИНТЕРФЕЙС ---
-st.title("⚡ Market Intelligence")
-st.markdown(f"##### Анализ для: `{product_name}` | Маршрут: `{origin}`")
-
-# Метрики
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("Potential Sales", f"{sold_count} ед.")
-with c2:
-    st.metric("Net Profit", f"{int(net_profit):,} TMT", "Estimated")
-with c3:
-    st.metric("Cost per Unit", f"{int(total_cost_tmt)} TMT", "incl. Logistics")
-
-st.write("") 
-
-# Карта и График
+st.write("") # Отступ
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Прогноз продаж", f"{sales_count} ед.", "из 10,000")
+m2.metric("Чистая прибыль", f"{int(total_profit):,} TMT")
+m3.metric("Маржа с единицы", f"{int(margin_tmt)} TMT", f"{int(roi)}% ROI")
+m4.metric("Себестоимость", f"{int(total_cost_tmt)} TMT")
+st.divider()
 col_left, col_right = st.columns([1.5, 1])
 
 with col_left:
-    st.markdown("### Supply Chain Visualizer")
-    m = folium.Map(location=[32, 62], zoom_start=4, tiles="CartoDB dark_matter")
+    st.markdown(f"### 🌍 Логистика: {origin_city} → Ашхабад")
     
-    locations = {
+    # Координаты для карты
+    coords = {
         "Dubai (UAE)": [25.2, 55.2],
         "Tashkent (UZB)": [41.3, 69.2],
+        "Istanbul (TUR)": [41.0, 28.9],
         "Ashgabat": [37.9, 58.3]
     }
     
-    start_coords = locations[origin]
-    end_coords = locations["Ashgabat"]
+    m = folium.Map(location=[35, 50], zoom_start=4, tiles="CartoDB dark_matter")
+    start = coords[origin_city]
+    end = coords["Ashgabat"]
     
-    folium.PolyLine([start_coords, end_coords], color="#7C3AED", weight=4, opacity=0.8).add_to(m)
-    folium.CircleMarker(start_coords, radius=8, color="#4F46E5", fill=True, popup=origin).add_to(m)
-    folium.CircleMarker(end_coords, radius=10, color="#EF4444", fill=True, popup="Market").add_to(m)
+    folium.PolyLine([start, end], color="#7C3AED", weight=4).add_to(m)
+    folium.Marker(start, popup=origin_city).add_to(m)
+    folium.Marker(end, popup="Ашхабад", icon=folium.Icon(color='red')).add_to(m)
     
     st_folium(m, width="100%", height=400)
 
 with col_right:
-    st.markdown("### Price Strategy")
-    fig = px.histogram(data, x='val', nbins=50, template="plotly_dark")
-    fig.add_vline(x=target_price_tmt, line_dash="dash", line_color="#EF4444", annotation_text="Your Price")
-    fig.update_layout(showlegend=False, margin=dict(l=0, r=0, t=0, b=0), height=350)
+    st.markdown("### 📊 Анализ аудитории")
+    fig = px.area(market_data.sort_values('budget'), x='budget', template="plotly_dark")
+    fig.update_traces(line_color='#7C3AED', fillcolor='rgba(124, 58, 237, 0.2)')
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=350)
     st.plotly_chart(fig, use_container_width=True)
 
-# Нижняя панель
-st.info(f"🤖 **AI Strategy:** Для товара '{product_name}' при закупке в ${buy_price_usd}, ваша маржа составляет {int(target_price_tmt - total_cost_tmt)} TMT. Рекомендуем держать цену не выше {int(target_price_tmt * 1.1)} TMT для сохранения охвата.")
-    
+# AI Фидбек
+st.info(f"🤖 **AI Анализ:** Для товара '{product_name}' при цене {target_price_tmt} TMT вы получаете высокую маржу. Рекомендуем обратить внимание на сроки доставки из {origin_city}.")

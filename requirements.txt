@@ -2,6 +2,5 @@ streamlit
 pandas
 numpy
 plotly
-flask
-streamlit-folium
 folium
+streamlit-folium

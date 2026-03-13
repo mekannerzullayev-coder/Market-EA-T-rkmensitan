@@ -5,60 +5,88 @@ import plotly.express as px
 from streamlit_folium import st_folium
 import folium
 
-# Настройка страницы (должна быть первой командой)
-st.set_page_config(page_title="Market & Logistics AI", layout="wide")
+# Настройка страницы в стиле Dashboard
+st.set_page_config(page_title="Market Intel Pro", layout="wide", initial_sidebar_state="expanded")
 
-st.title("🌍 AI Market Intelligence & Logistics")
+# Кастомный CSS для "дорогого" вида
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    div[data-testid="stMetricValue"] { font-size: 28px; font-weight: 700; color: #1f2937; }
+    div[data-testid="stMetricDelta"] { font-size: 16px; }
+    .stPlotlyChart { border-radius: 15px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- ЛОГИСТИКА И КАРТА ---
-st.subheader("Маршруты поставок: Дубай / Ташкент")
-
-col_map, col_info = st.columns([2, 1])
-
-with col_map:
-    # Создаем карту
-    m = folium.Map(location=[32, 62], zoom_start=4, tiles="CartoDB positron")
+# --- SIDEBAR (Настройки) ---
+with st.sidebar:
+    st.title("💎 Global Logistics")
+    st.subheader("Product Settings")
+    product_name = st.text_input("Product Name", "Luxury Fragrance")
+    user_price = st.slider("Retail Price (TMT)", 100, 3000, 750)
     
-    # Точки
-    locations = {
-        "Dubai": [25.2048, 55.2708],
-        "Tashkent": [41.2995, 69.2401],
-        "Ashgabat": [37.9601, 58.3262]
-    }
+    st.divider()
+    st.subheader("Logistics")
+    route = st.selectbox("Shipping Route", ["Dubai ✈️ Ashgabat", "Tashkent 🚛 Ashgabat"])
+    cost_usd = st.number_input("Unit Cost (USD)", value=25.0)
     
-    # Линии маршрутов
-    folium.PolyLine([locations["Dubai"], locations["Ashgabat"]], color="blue", weight=3).add_to(m)
-    folium.PolyLine([locations["Tashkent"], locations["Ashgabat"]], color="green", weight=3).add_to(m)
-    
-    # Маркеры
-    folium.Marker(locations["Dubai"], popup="Dubai").add_to(m)
-    folium.Marker(locations["Ashgabat"], popup="Ashgabat", icon=folium.Icon(color='red')).add_to(m)
-    
-    # Вывод карты
-    st_folium(m, width="100%", height=350)
+    st.divider()
+    st.caption("v2.4 | Powered by AI Market Engines")
 
-with col_info:
-    st.info("📦 Параметры")
-    origin = st.radio("Откуда везем?", ["Дубай (ОАЭ)", "Ташкент (Узбекистан)"])
-    price = st.slider("Ваша цена продажи (TMT)", 100, 2000, 550)
-    st.write(f"**Выбран маршрут:** {origin}")
+# --- MAIN INTERFACE ---
+st.title("Market Intelligence Dashboard")
+st.write(f"Real-time simulation for **{product_name}**")
 
-# --- СИМУЛЯЦИЯ 10,000 АГЕНТОВ ---
-st.divider()
-st.subheader("🎯 Анализ спроса (10,000 ИИ-агентов)")
-
-# Генерация данных
+# Расчеты (Бизнес-логика)
 np.random.seed(42)
-agents = pd.DataFrame({'income': np.random.normal(4000, 1500, 10000)})
-agents['buy'] = agents['income'] > price
+agents = pd.DataFrame({'income': np.random.gamma(5, 1000, 10000)})
+agents['buy'] = agents['income'] > user_price
 
-sales = agents['buy'].sum()
-st.metric("Прогноз продаж", f"{sales} ед.", delta=f"{int(sales/100)}% охват")
+total_sales = int(agents['buy'].sum())
+delivery_fee = 10.0 if "Dubai" in route else 4.0
+margin_per_unit = user_price - ((cost_usd + delivery_fee) * 20)
+total_profit = total_sales * margin_per_unit
 
-# График
-fig = px.histogram(agents, x="income", color="buy", 
-                   title="Кто купит ваш товар?",
-                   color_discrete_map={True: "#00CC96", False: "#EF553B"})
-st.plotly_chart(fig, use_container_width=True)
+# 1. Секция KPI (Метрики как в Stripe/Shopify)
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Predicted Sales", f"{total_sales} units", "12% 📈")
+m2.metric("Market Reach", f"{int(total_sales/100)}%", "Global")
+m3.metric("Net Profit", f"{int(total_profit)} TMT", "High Margin" if margin_per_unit > 100 else "Low")
+m4.metric("ROI", f"{int((margin_per_unit/user_price)*100)}%", "per unit")
 
-st.success("✅ Код работает стабильно!")
+st.divider()
+
+# 2. Секция Визуализации (Карта и График в ряд)
+col_left, col_right = st.columns([1, 1.2])
+
+with col_left:
+    st.subheader("Logistics Visualizer")
+    # Создаем минималистичную карту
+    m = folium.Map(location=[32, 62], zoom_start=4, tiles="CartoDB Positron")
+    
+    # Координаты
+    dubai, tashkent, ashgabat = [25.2, 55.2], [41.3, 69.2], [37.9, 58.3]
+    
+    if "Dubai" in route:
+        folium.PolyLine([dubai, ashgabat], color="#3b82f6", weight=4, opacity=0.8).add_to(m)
+        folium.Marker(dubai, icon=folium.Icon(color='blue', icon='plane', prefix='fa')).add_to(m)
+    else:
+        folium.PolyLine([tashkent, ashgabat], color="#10b981", weight=4, opacity=0.8).add_to(m)
+        folium.Marker(tashkent, icon=folium.Icon(color='green', icon='truck', prefix='fa')).add_to(m)
+        
+    folium.Marker(ashgabat, icon=folium.Icon(color='red', icon='star')).add_to(m)
+    
+    st_folium(m, width="100%", height=400, returned_objects=[])
+
+with col_right:
+    st.subheader("Demand Analysis")
+    fig = px.area(agents.sort_values('income'), x='income', y=agents['buy'].astype(int).cumsum(),
+                 title="Cumulative Potential Buyers",
+                 labels={'income': 'Customer Budget', 'y': 'Total Sales Volume'},
+                 color_discrete_sequence=['#3b82f6'])
+    fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', margin=dict(l=20, r=20, t=40, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+# 3. Интеллектуальный вывод
+st.info(f"💡 **AI Suggestion:** At {user_price} TMT, you are capturing the upper-middle class segment. To maximize profit, consider a small price increase to {user_price + 50} TMT.")
+    

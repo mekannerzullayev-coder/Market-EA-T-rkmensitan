@@ -3,79 +3,97 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import sqlite3
+from datetime import datetime
 
-# Настройка интерфейса
-st.set_page_config(page_title="AI Market Intelligence", layout="wide")
+# Настройка страницы
+st.set_page_config(page_title="AI Market Intelligence Pro", layout="wide")
 
-# Кастомный дизайн (CSS)
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    </style>
-    """, unsafe_allow_html=True)
+# Работа с базой данных
+def init_db():
+    conn = sqlite3.connect('market_data.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS simulations
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  timestamp TEXT,
+                  product_name TEXT,
+                  price REAL,
+                  profit REAL,
+                  sales INTEGER)''')
+    conn.commit()
+    conn.close()
 
-# Боковая панель
-st.sidebar.title("💎 Управление стартапом")
-lang = st.sidebar.radio("Тили / Язык", ["Türkmençe", "Русский"])
+def save_simulation(name, price, profit, sales):
+    conn = sqlite3.connect('market_data.db')
+    c = conn.cursor()
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute("INSERT INTO simulations (timestamp, product_name, price, profit, sales) VALUES (?, ?, ?, ?, ?)",
+              (ts, name, price, profit, sales))
+    conn.commit()
+    conn.close()
 
-# Текстовые константы
-if lang == "Türkmençe":
-    txt = {"title": "Bazaryň emeli akyl seljermesi", "price": "Satuw bahasy (TMT)", "comp": "Bäsdeşiň bahasy", "profit": "Peýda", "sales": "Satuw", "target": "Maksat"}
-else:
-    txt = {"title": "ИИ-аналитика рынка парфюмерии", "price": "Цена продажи (TMT)", "comp": "Цена конкурента", "profit": "Прибыль", "sales": "Продажи", "target": "Цель"}
+def get_history():
+    conn = sqlite3.connect('market_data.db')
+    df = pd.read_sql_query("SELECT timestamp, product_name, price, profit, sales FROM simulations ORDER BY id DESC", conn)
+    conn.close()
+    return df
 
-st.title(f"🚀 {txt['title']}")
+init_db()
 
-# Ввод данных
-col_in1, col_in2, col_in3 = st.columns(3)
-with col_in1:
-    user_price = st.slider(txt['price'], 100, 2000, 450)
-with col_in2:
-    comp_price = st.slider(txt['comp'], 100, 2000, 500)
-with col_in3:
-    cost_price = st.number_input("Cost per unit ($)", value=15.0)
+# Интерфейс
+st.title("🚀 AI Market Optimizer + Database")
 
-# Логика 10,000 агентов
+with st.sidebar:
+    st.header("📦 Параметры товара")
+    product_name = st.text_input("Название товара", "Parfume Deluxe")
+    user_price = st.slider("Цена продажи (TMT)", 100, 2000, 500)
+    comp_price = st.slider("Цена конкурента (TMT)", 100, 2000, 550)
+    cost_usd = st.number_input("Закупка ($)", value=20.0)
+    
+    if st.button("💾 Сохранить расчет в базу"):
+        # Эти данные вычисляются ниже, берем текущие значения
+        save_simulation(product_name, user_price, st.session_state.get('last_profit', 0), st.session_state.get('last_sales', 0))
+        st.success("Данные сохранены!")
+
+# Симуляция
 np.random.seed(42)
-n_agents = 10000
-df = pd.DataFrame({
-    'budget': np.random.gamma(5, 200, n_agents), # Распределение доходов
-    'preference': np.random.uniform(0.5, 1.5, n_agents) # Склонность к роскоши
+df_sim = pd.DataFrame({
+    'budget': np.random.normal(4000, 1500, 10000),
+    'quality_need': np.random.uniform(0, 1, 10000)
 })
 
-# Симуляция покупки
-# Покупает если: цена < бюджета И (наша цена выгоднее конкурента ИЛИ бренд нравится)
-df['buy'] = (user_price < df['budget']) & ((user_price < comp_price) | (df['preference'] > 1.2))
-total_sales = df['buy'].sum()
-revenue = total_sales * user_price
-net_profit = total_sales * (user_price - (cost_price * 20)) # Курс 20
+df_sim['buy'] = (user_price < df_sim['budget']) & (user_price < comp_price * 1.1)
+total_sales = int(df_sim['buy'].sum())
+net_profit = int(total_sales * (user_price - (cost_usd * 20)))
 
-# Визуализация 1: Метрики
-c1, c2, c3 = st.columns(3)
-c1.metric(txt['sales'], f"{total_sales} ед.", "+12%")
-c2.metric(txt['profit'], f"{int(net_profit)} TMT", f"{int((net_profit/revenue)*100)}% ROI" if revenue > 0 else "0%")
-c3.metric(txt['target'], "85%", "В норме")
+# Сохраняем в состояние для кнопки записи
+st.session_state['last_profit'] = net_profit
+st.session_state['last_sales'] = total_sales
 
-# Визуализация 2: График прибыли
-st.subheader("📈 Аналитика спроса")
-fig_hist = px.histogram(df, x="budget", color="buy", 
-                   marginal="box", # Добавляет "ящик с усами" сверху
-                   title="Кто покупает ваш продукт?",
-                   color_discrete_map={True: "#00cc96", False: "#ab63fa"},
-                   labels={"budget": "Доход клиента", "buy": "Покупка"})
-st.plotly_chart(fig_hist, use_container_width=True)
+# Визуализация
+col1, col2 = st.columns([2, 1])
 
-# Визуализация 3: Спидометр прибыли
-fig_gauge = go.Figure(go.Indicator(
-    mode = "gauge+number",
-    value = net_profit,
-    title = {'text': txt['profit']},
-    gauge = {'axis': {'range': [None, 500000]},
-             'bar': {'color': "#00cc96"},
-             'steps' : [
-                 {'range': [0, 100000], 'color': "#ffefef"},
-                 {'range': [100000, 300000], 'color': "#e8f5e9"}]}))
-st.plotly_chart(fig_gauge)
+with col1:
+    st.subheader("📊 Анализ спроса")
+    fig = px.histogram(df_sim, x="budget", color="buy", barmode="overlay",
+                       title=f"Симуляция для {product_name}",
+                       color_discrete_map={True: "#00CC96", False: "#EF553B"})
+    st.plotly_chart(fig, use_container_width=True)
 
-st.info("💡 Совет от ИИ: Ваша цена ниже конкурента, это привлекает средний класс. Попробуйте поднять цену до 550 TMT, чтобы проверить эластичность спроса.")
+with col2:
+    st.subheader("💰 Экономика")
+    st.metric("Прогноз продаж", f"{total_sales} ед.")
+    st.metric("Чистая прибыль", f"{net_profit} TMT")
+    
+    # Кнопка скачивания Excel
+    csv = df_sim.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Скачать сырые данные (CSV)", csv, "market_data.csv", "text/csv")
+
+# Секция истории
+st.divider()
+st.subheader("📜 История ваших симуляций")
+history_df = get_history()
+if not history_df.empty:
+    st.dataframe(history_df, use_container_width=True)
+else:
+    st.info("История пока пуста. Нажмите 'Сохранить', чтобы записать первый результат.")
